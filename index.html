@@ -1,3 +1,26 @@
+<script type="module">
+  // Import the functions you need from the SDKs you need
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-app.js";
+  import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-analytics.js";
+  // TODO: Add SDKs for Firebase products that you want to use
+  // https://firebase.google.com/docs/web/setup#available-libraries
+
+  // Your web app's Firebase configuration
+  const firebaseConfig = {
+    apiKey: "AIzaSyBTYxqddPiQvMjNK8C9ymojjRo5gP2QLJw",
+    authDomain: "endotrack-82432.firebaseapp.com",
+    projectId: "endotrack-82432",
+    storageBucket: "endotrack-82432.firebasestorage.app",
+    messagingSenderId: "220594646581",
+    appId: "1:220594646581:web:24d50a67ee5e243065cb7c",
+    measurementId: "G-PZDM9T3LQ2"
+  };
+
+  // Initialize Firebase
+  const app = initializeApp(firebaseConfig);
+  const analytics = getAnalytics(app);
+</script>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -262,24 +285,30 @@
             <th>History</th>
           </tr>
         </thead>
-        <tbody>
-        </tbody>
+        <tbody id="endorsement-table-body"></tbody>
       </table>
     </div>
   </div>
 
-  <!-- Undo Button Section Always Visible -->
-  <div class="undo-container">
-    <button class="undo-btn" id="undo-btn">Undo Last Entry</button>
-  </div>
+  <script type="module">
+    import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-firestore.js";
 
-  <script>
-    let lastAddedRow = null; // Store the last added row for undo functionality
+    const db = getFirestore(app);
 
-    // Event listener for adding data
+    // Add Data to Firestore
+    async function addDataToFirestore(data) {
+      try {
+        const docRef = await addDoc(collection(db, "endorsements"), data);
+        console.log("Document written with ID: ", docRef.id);
+      } catch (e) {
+        console.error("Error adding document: ", e);
+      }
+    }
+
     document.getElementById('endorsement-form').addEventListener('submit', function(event) {
       event.preventDefault();
 
+      // Form data
       const zendeskNew = document.getElementById('zendesk-new').value;
       const zendeskOld = document.getElementById('zendesk-old').value;
       const sabreLocator = document.getElementById('sabre-locator').value;
@@ -294,49 +323,23 @@
 
       const timestamp = new Date().toLocaleString("en-US", { timeZone: "America/New_York" });
 
-      const table = document.getElementById('endorsement-table').querySelector('tbody');
-      const newRow = table.insertRow();
+      // Prepare data to save to Firestore
+      const data = {
+        zendeskNew,
+        zendeskOld,
+        sabreLocator,
+        icName,
+        issue,
+        agentName,
+        notes: notes.join(', '),
+        actionNeeded,
+        timestamp
+      };
 
-      newRow.innerHTML = `
-        <td>
-          <button class="delete-btn" onclick="deleteRow(this)">Delete</button>
-          <button class="undo-btn" onclick="undoRow(this)">Undo</button>
-        </td>
-        <td>${timestamp}</td>
-        <td>${zendeskNew}</td>
-        <td>${zendeskOld}</td>
-        <td>${sabreLocator}</td>
-        <td>${icName}</td>
-        <td>${issue}</td>
-        <td>
-          <select class="agent-name-dropdown">
-            <option value="${agentName}">${agentName}</option>
-            <option value="Allen Perez">Allen Perez</option>
-            <option value="Jacqueline Penaroyo">Jacqueline Penaroyo</option>
-            <option value="Jelohim Gabales">Jelohim Gabales</option>
-            <option value="Lovely Grace Ruizo">Lovely Grace Ruizo</option>
-            <option value="Noel Gamalo">Noel Gamalo</option>
-            <option value="Princess Lyn Mabangis">Princess Lyn Mabangis</option>
-            <option value="Rex Abella">Rex Abella</option>
-            <option value="Abdalla Gurondaya">Abdalla Gurondaya</option>
-            <option value="Carmela Kristine Lopez">Carmela Kristine Lopez</option>
-          </select>
-        </td>
-        <td>${notes.join(', ')}</td>
-        <td><textarea class="editable-action">${actionNeeded}</textarea></td>
-        <td><button class="status-btn yellow" onclick="toggleStatus(this)">NEED ACTION</button></td>
-        <td>
-          <select class="history-dropdown">
-            <option value="">History</option>
-            <option value="Initial Data - ${timestamp} - Agent: ${agentName}">Initial Data - ${timestamp} - Agent: ${agentName}</option>
-          </select>
-          <button class="track-change-btn" onclick="trackChange(this)">Submit</button>
-        </td>
-      `;
-
-      lastAddedRow = newRow; // Save the last added row for undo functionality
-
-      // Clear input fields
+      // Call Firestore function to add data
+      addDataToFirestore(data);
+      
+      // Clear the form
       document.getElementById('zendesk-new').value = '';
       document.getElementById('zendesk-old').value = '';
       document.getElementById('sabre-locator').value = '';
@@ -345,62 +348,6 @@
       document.getElementById('need-service-fee').checked = false;
       document.getElementById('need-verify-commission').checked = false;
       document.getElementById('need-credit-card').checked = false;
-    });
-
-    // Undo specific row
-    function undoRow(button) {
-      const row = button.closest('tr');
-      row.remove();
-      lastAddedRow = null; // Reset last added row if undone
-    }
-
-    // Toggle status (DONE or NEED ACTION)
-    function toggleStatus(button) {
-      const status = button.innerText;
-      if (status === 'NEED ACTION') {
-        button.classList.remove('yellow');
-        button.classList.add('green');
-        button.innerText = 'DONE';
-      } else {
-        button.classList.remove('green');
-        button.classList.add('yellow');
-        button.innerText = 'NEED ACTION';
-      }
-    }
-
-    // Delete row
-    function deleteRow(button) {
-      const row = button.closest('tr');
-      row.remove();
-    }
-
-    // Track change and append to history
-    function trackChange(button) {
-      const row = button.closest('tr');
-      const actionNeeded = row.querySelector('.editable-action').value;
-      const agentName = row.querySelector('.agent-name-dropdown').value;
-      const historyDropdown = row.querySelector('.history-dropdown');
-
-      // Get current timestamp and create a new history entry
-      const timestamp = new Date().toLocaleString("en-US", { timeZone: "America/New_York" });
-      const newHistoryEntry = `Action Changed - ${timestamp} - Agent: ${agentName} - Action: ${actionNeeded}`;
-
-      // Add the new history entry to the dropdown
-      const newOption = document.createElement('option');
-      newOption.value = newHistoryEntry;
-      newOption.textContent = newHistoryEntry;
-      historyDropdown.appendChild(newOption);
-      
-      // Optionally, set the history dropdown to show the most recent entry
-      historyDropdown.value = newHistoryEntry;
-    }
-
-    // Undo last added row
-    document.getElementById('undo-btn').addEventListener('click', function() {
-      if (lastAddedRow) {
-        lastAddedRow.remove();
-        lastAddedRow = null;
-      }
     });
   </script>
 </body>
